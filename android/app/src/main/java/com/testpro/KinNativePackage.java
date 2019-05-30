@@ -10,11 +10,6 @@ import java.util.Collections;
 import java.util.List;
  
 public class KinNativePackage implements ReactPackage {
-
-    // @Override
-    // public List<Class<? extends JavaScriptModule>> createJSModules() {
-    //   return Collections.emptyList();
-    // }
  
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
@@ -25,8 +20,8 @@ public class KinNativePackage implements ReactPackage {
     public List<NativeModule> createNativeModules(
             ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();
-        //this is where you register the module
         modules.add(new KinNativeModule(reactContext));
+        modules.add(new KinModule(reactContext));
         return modules;
     }
 }

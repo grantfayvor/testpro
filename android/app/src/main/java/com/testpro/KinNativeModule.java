@@ -6,13 +6,14 @@ import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.uimanager.IllegalViewOperationException;
 
+import android.widget.Toast;
+
 import java.math.BigDecimal;
 import com.google.gson.Gson;
 
 import kin.sdk.*;
-import kin.base.xdr.Error;
-import kin.base.xdr.ErrorCode;
 import kin.sdk.exception.CreateAccountException;
+import kin.sdk.exception.DeleteAccountException;
 import kin.utils.Request;
 import kin.utils.ResultCallback;
 
@@ -22,10 +23,12 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
     private KinAccount kinAccount;
     private String publicAddress;
     private Gson gson = new Gson();
+    private final String APP_ID = "vNiX";
+    private final String ENVIRONMENT = "PRODUCTION";
 
     public KinNativeModule(ReactApplicationContext reactContext) {
         super(reactContext);
-        init("vNiX", "TEST");
+        init();
     }
 
     @Override
@@ -46,23 +49,20 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
         }
         return environ;
     }
-    
-    private void init (String appId, String environment) {
-        getClient(appId, environment);
-        getOrCreateAccount();
-        
-    }
 
     @ReactMethod
     public void sayHi(Callback cb) {
         cb.invoke("Callback : Greetings from Java: I know, i know");
     }
 
+    private void init () {
+        getClient(APP_ID, ENVIRONMENT);
+        getOrCreateAccount();
+    }
+
     @ReactMethod
     public void getClient(String appId, String environment, Callback cb) {
-        Environment env = getEnvironment(environment);
-        kinClient = new KinClient(getReactApplicationContext(), env, appId);
-        cb.invoke(null, gson.toJson(kinClient));
+        cb.invoke(null, gson.toJson(getClient(appId, environment)));
     }
     
     private KinClient getClient(String appId, String environment) {
@@ -73,14 +73,29 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void createAccount(Callback cb) {
+        Toast.makeText(getReactApplicationContext(), "About to create the account", Toast.LENGTH_SHORT).show();
         try {
             if (!kinClient.hasAccount()) {
                 kinAccount = kinClient.addAccount();
+            } else {
+                kinAccount = kinClient.getAccount(0);
             }
-        } catch (CreateAccountException ex) {
-            ex.printStackTrace();
+            cb.invoke(null, kinAccount.getStatusSync());
+        } catch (Exception ex) {
+            cb.invoke(gson.toJson(new Error(ex.getMessage(), ex.getCause())));
         }
-        cb.invoke(null, gson.toJson(kinAccount));
+    }
+
+    @ReactMethod
+    public void createUserAccount(Callback cb) {
+        Toast.makeText(getReactApplicationContext(), "About to create account for user", Toast.LENGTH_SHORT).show();
+        KinAccount account = null;
+        try {
+            account = kinClient.addAccount();
+            cb.invoke(null, account.getPublicAddress(), kinClient.getAccountCount() - 1);
+        } catch (CreateAccountException e) {
+            cb.invoke(gson.toJson(new Error(e.getMessage(), e.getCause())));
+        }
     }
     
     private KinAccount getOrCreateAccount() {
@@ -106,13 +121,17 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
             kinAccount = kinClient.getAccount(0);
             cb.invoke(null, gson.toJson(kinAccount));
         }
-        else cb.invoke(gson.toJson(new Exception("Cannot find an associated kin account for the kin client")));
+        else cb.invoke(gson.toJson(new Error("Cannot find an associated kin account for the kin client")));
     }
 
     @ReactMethod
-    public void deleteAccount(int index, Callback cb) throws Exception {
-        if (!kinClient.hasAccount()) cb.invoke(gson.toJson(new Exception("Kin client does not have any account")));
-        kinClient.deleteAccount(index);
+    public void deleteAccount(int index, Callback cb) {
+        if (!kinClient.hasAccount()) cb.invoke(gson.toJson(new Error("Kin client does not have any account")));
+        try {
+            kinClient.deleteAccount(index);
+        } catch (DeleteAccountException e) {
+            cb.invoke(new Error(e.getMessage(), e.getCause()));
+        }
         cb.invoke(null, index);
     }
 
@@ -141,17 +160,14 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
                         cb.invoke(null, gson.toJson(new Status("Kin account has been created", 200)));
                         break;
                     case AccountStatus.NOT_CREATED:
-                        Error err = new Error();
-                        err.setCode(ErrorCode.ERR_DATA);
-                        err.setMsg("Kin account has not been created");
-                        cb.invoke(gson.toJson(err));
+                        cb.invoke(null, gson.toJson(new Status("Kin account was not created", 400)));
                         break;
                 }
             }
 
             @Override
             public void onError(Exception e) {
-                cb.invoke(gson.toJson(e));
+                cb.invoke(gson.toJson(new Error(e.getMessage(), e.getCause())));
             }
         });
     }
@@ -168,7 +184,7 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
 
             @Override
             public void onError(Exception e) {
-                cb.invoke(gson.toJson(e));
+                cb.invoke(gson.toJson(new Error(e.getMessage(), e.getCause())));
             }
         });
     }
@@ -178,7 +194,7 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
         try {
             buildTransaction(recipientAddress, amount, getCurrentMinimumFee(), cb);
         } catch (Exception e) {
-            cb.invoke(gson.toJson(e));
+            cb.invoke(gson.toJson(new Error(e.getMessage(), e.getCause())));
         }
     }
 
@@ -202,14 +218,14 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
 
                     @Override
                     public void onError(Exception e) {
-                        cb.invoke(gson.toJson(e));
+                        cb.invoke(gson.toJson(new Error(e.getMessage(), e.getCause())));
                     }
                 });
             }
 
             @Override
             public void onError(Exception e) {
-                cb.invoke(gson.toJson(e));
+                cb.invoke(gson.toJson(new Error(e.getMessage(), e.getCause())));
             }
         });
     }
@@ -221,32 +237,17 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void addPaymentListener(final Callback cb) {
-        ListenerRegistration listenerRegistration = kinAccount.addPaymentListener(new EventListener<PaymentInfo>() {
-            @Override
-            public void onEvent(PaymentInfo payment) {
-                cb.invoke(gson.toJson(payment));
-            }
-        });
+        ListenerRegistration listenerRegistration = kinAccount.addPaymentListener(payment -> cb.invoke(gson.toJson(payment)));
     }
 
     @ReactMethod
     public void addBalanceListener(final Callback cb) {
-        ListenerRegistration listenerRegistration = kinAccount.addBalanceListener(new EventListener<Balance>() {
-            @Override
-            public void onEvent(Balance balance) {
-                cb.invoke(gson.toJson(balance));
-            }
-        });
+        ListenerRegistration listenerRegistration = kinAccount.addBalanceListener(balance -> cb.invoke(gson.toJson(balance)));
     }
 
     @ReactMethod
     public void addAccountCreationListener(final Callback cb) {
-        ListenerRegistration listenerRegistration = kinAccount.addAccountCreationListener(new EventListener<Void>() {
-            @Override
-            public void onEvent(Void result) {
-                cb.invoke(gson.toJson(result));
-            }
-        });
+        ListenerRegistration listenerRegistration = kinAccount.addAccountCreationListener(result -> cb.invoke(gson.toJson(result)));
     }
 
     @ReactMethod
@@ -255,7 +256,7 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
             int fee = (int) Math.ceil(kinClient.getMinimumFeeSync());
             cb.invoke(null, fee);
         } catch(Exception ex) {
-            cb.invoke(gson.toJson(ex));
+            cb.invoke(gson.toJson(new Error(ex.getMessage(), ex.getCause())));
         }
     }
     private int getCurrentMinimumFee() throws Exception{
