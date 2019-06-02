@@ -20,35 +20,53 @@ const instructions = Platform.select({
     'Shake or press menu button for dev menu',
 });
 
+const kinConfig = {
+  appId: "test",
+  environment: "DEVELOPMENT"
+  // appId: "vNiX",
+  // environment: "PRODUCTION"
+};
+
 type Props = {};
 export default class App extends Component<Props> {
-  constructor(props) {
+  constructor (props) {
     super(props);
     this.state = {
-      message: ""
+      message: "",
+      accountNumber: 0,
+      publicAddress: "",
+      balance: 0
     };
   }
   startKin = () => {
-    // let jwt = "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6InJzNTEyXzAifQ.eyJpc3MiOiJ0ZXN0IiwiZXhwIjoxNTYwMjM5MDIyLCJpYXQiOjE1NTkwODk5OTksInN1YiI6InJlZ2lzdGVyIiwidXNlcl9pZCI6InRlc3RfdXNlcl9pZF8xIn0.qUEePUhM0OBR1uRNKNE5aCpyAnIawqaUtOYRr56-EODtQBBb51XM8PlXjBUHZ1L4aeC9oh-SfGmthlNKapQNjLYLyCzigO4Az98P2r-3BygtB6BmIt0EoLmlgg9qQs9_xxWoJSf3iQCuVhJWkV2ple7BVSXJZqdJ5-ZzJgMID0w";
-    // Kin.start(jwt, "development", (error, result, desc) => {
-    //   console.log(error);
-    //   console.log(result);
-    //   console.log(desc);
-    // });
-    KinNative.createUserAccount((error, publicAddress, accountNumber) => {
+    KinNative.createUserAccount(JSON.stringify(kinConfig), (error, publicAddress, accountNumber, response) => {
       console.log(error);
       console.log(publicAddress);
       console.log(accountNumber);
+      console.log(response);
+      this.setState({ accountNumber, publicAddress });
     });
   }
-  render() {
-    
+
+  getBalance = accountNumber => {
+    KinNative.getUserBalance(JSON.stringify(kinConfig), accountNumber, (error, balance) => {
+      console.log(error);
+      console.log(balance);
+      this.setState({ balance });
+    });
+  }
+
+  render () {
+
     return (
       <View style={styles.container}>
         <Text style={styles.welcome}>Welcome to React Native!</Text>
-        <Text style={styles.instructions}>{this.state.message}</Text>
+        <Text style={styles.instructions}>{this.state.balance}</Text>
         <TouchableOpacity onPress={this.startKin}>
-          <Text>Button</Text>
+          <Text>Create Account</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => this.getBalance(this.state.accountNumber)}>
+          <Text>Get Balance</Text>
         </TouchableOpacity>
       </View>
     );
