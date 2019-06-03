@@ -136,7 +136,7 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void buildTransaction(String config, int accountNumber, String recipientAddress, BigDecimal amount, final Callback cb) {
+    public void buildTransaction(String config, int accountNumber, String recipientAddress, double amount, final Callback cb) {
         try {
             buildTransaction(config, accountNumber, recipientAddress, amount, getCurrentMinimumFee(), cb);
         } catch (Exception e) {
@@ -145,19 +145,19 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void buildTransaction(String config, int accountNumber, String recipientAddress, BigDecimal amount, int fee, final Callback cb) {
+    public void buildTransaction(String config, int accountNumber, String recipientAddress, double amount, int fee, final Callback cb) {
         buildTransaction(config, accountNumber, recipientAddress, amount, fee, null, cb);
     }
 
     @ReactMethod
-    public void buildTransaction(String config, int accountNumber, String recipientAddress, BigDecimal amount, int fee, String memo, final Callback cb) {
+    public void buildTransaction(String config, int accountNumber, String recipientAddress, double amount, int fee, String memo, final Callback cb) {
         init(config);
         buildTransaction(accountNumber, recipientAddress, amount, fee, memo, cb);
     }
 
-    private void buildTransaction(int accountNumber, String recipientAddress, BigDecimal amount, int fee, String memo, final Callback cb) {
+    private void buildTransaction(int accountNumber, String recipientAddress, double amount, int fee, String memo, final Callback cb) {
         KinAccount kinAccount = getUserAccount(accountNumber);
-        Request<Transaction> transactionRequest = kinAccount.buildTransaction(recipientAddress, amount, fee, memo);
+        Request<Transaction> transactionRequest = kinAccount.buildTransaction(recipientAddress, new BigDecimal(amount), fee, memo);
         transactionRequest.run(new ResultCallback<Transaction>() {
             @Override
             public void onResult(Transaction transaction) {
@@ -183,7 +183,7 @@ public class KinNativeModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void buildWhitelistedTransaction(String recipientAddress, BigDecimal amount, int fee, final Callback cb) {
+    public void buildWhitelistedTransaction(String recipientAddress, float amount, int fee, final Callback cb) {
 
     }
 
